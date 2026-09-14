@@ -18,34 +18,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
-          protocol: ftp
-          local-dir: ./
-          server-dir: public_html/
-          state-name: visiontrack-deploy-v2
-          log-level: standard
-          exclude: |
-            .git
-            .git/**
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/.DS_Store
-            **/.vscode/**
-            **/._*
-            README.md
-            _backup_transfer_*/
-            **/_backup_transfer_*/
-            data/**
-            cache/**
-            session/**
-            tmp/**
-            *.log
-            .env
-            .env.*
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy via lftp
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+        run: |
+          set -euo pipefail
+          lftp -e "
+            set ftp:ssl-allow no;
+            set net:max-retries 3;
+            set net:timeout 20;
+            set mirror:parallel-transfer-count 1;
+            open -u ${FTP_USERNAME},${FTP_PASSWORD} -p ${FTP_PORT} ${FTP_SERVER};
+            pwd;
+            ls;
+            mirror -R --verbose --only-newer \
+              --exclude-glob .git \
+              --exclude-glob .git/** \
+              --exclude-glob .github \
+              --exclude-glob .github/** \
+              --exclude-glob README.md \
+              --exclude-glob .gitignore \
+              ./ ./;
+            bye;
+          "
