@@ -31,7 +31,10 @@ jobs:
           state-name: visiontrack-deploy-v1
           log-level: standard
           exclude: |
+            .git
+            .git/**
             **/.git*
+            **/.git*/**
             **/.github/**
             **/.DS_Store
             **/.vscode/**
