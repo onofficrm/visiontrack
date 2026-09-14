@@ -1,0 +1,87 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상담신청 | 진주개인파산</title>
+  <meta name="description" content="진주개인파산 비밀상담 신청. 전화 0503-6982-1000, 카카오톡 @희망도우미.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#content">본문 바로가기</a>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <span>창원지방법원 진주지원 관할 · 비밀상담</span>
+      <a href="tel:050369821000">24시간 0503-6982-1000</a>
+    </div>
+  </div>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="logo" href="index.html">진주개인파산<span>전문변호사 직접상담</span></a>
+      <button class="menu-toggle" type="button" data-menu-toggle aria-expanded="false">메뉴</button>
+      <nav class="nav-links" data-nav>
+        <a href="rehab.html">개인회생</a>
+        <a href="bankruptcy.html">개인파산</a>
+        <a href="process.html">진행절차</a>
+        <a href="faq.html">자주 묻는 질문</a>
+        <a href="consult.html" aria-current="page">상담신청</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">CONSULTATION</p>
+        <h1>지금 상황만 말씀해 주셔도 됩니다.</h1>
+        <p class="lead">서버에 상담 내용을 저장하지 않습니다. 작성하신 내용은 복사된 뒤 전화 또는 카카오톡으로 보내 주세요.</p>
+        <div class="cta-row">
+          <a class="btn btn-gold" href="tel:050369821000">0503-6982-1000</a>
+          <a class="btn btn-navy" href="https://pf.kakao.com/_tZbTn/chat" target="_blank" rel="noopener">카카오톡 @희망도우미</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <form class="form-box" data-consult-form>
+          <label for="name">이름 또는 호칭</label>
+          <input id="name" name="name" required maxlength="40" autocomplete="name">
+
+          <label for="phone">연락 가능한 번호</label>
+          <input id="phone" name="phone" required maxlength="20" inputmode="tel" autocomplete="tel">
+
+          <label for="topic">상담 구분</label>
+          <select id="topic" name="topic">
+            <option>개인회생</option>
+            <option>개인파산</option>
+            <option>압류·추심</option>
+            <option>잘 모르겠음</option>
+          </select>
+
+          <label for="message">현재 상황</label>
+          <textarea id="message" name="message" rows="6" maxlength="1000" placeholder="소득 형태, 대략적인 채무, 압류 여부 등"></textarea>
+
+          <p class="muted">전송을 누르면 내용이 복사되고 카카오톡 상담창으로 이동합니다. 개인정보 안내에 동의하는 것으로 봅니다.</p>
+          <button class="btn btn-gold" type="submit">카카오톡으로 이어서 문의</button>
+          <p class="form-status" data-form-status></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p><strong>진주개인파산</strong> · 전문변호사 직접상담 · 비밀보장</p>
+      <p>전화 <a href="tel:050369821000">0503-6982-1000</a> · 카카오톡 <a href="https://pf.kakao.com/_tZbTn/chat" target="_blank" rel="noopener">@희망도우미</a></p>
+      <p>본 페이지는 일반 안내이며 개별 사안에 대한 법률 자문이 아닙니다.</p>
+      <p><a href="privacy.html">개인정보 안내</a></p>
+    </div>
+  </footer>
+  <nav class="dock" aria-label="빠른 상담">
+    <a class="call" href="tel:050369821000">전화상담</a>
+    <a class="kakao" href="https://pf.kakao.com/_tZbTn/chat">카카오톡</a>
+  </nav>
+  <script src="js/main.js"></script>
+</body>
+</html>
