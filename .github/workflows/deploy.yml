@@ -26,7 +26,7 @@ jobs:
           FTP_PORT: ${{ secrets.FTP_PORT }}
         run: |
           python3 <<'PY'
-          import ftplib, os, sys
+          import ftplib, os, sys, socket
           from pathlib import Path
 
           def err(msg: str) -> None:
@@ -37,24 +37,69 @@ jobs:
               print(f"::notice::{msg}")
               print(msg)
 
-          server = (os.environ.get("FTP_SERVER") or "").strip()
+          server_raw = (os.environ.get("FTP_SERVER") or "").strip()
           user = (os.environ.get("FTP_USERNAME") or "").strip()
-          password = os.environ.get("FTP_PASSWORD") or ""
-          port = int((os.environ.get("FTP_PORT") or "21").strip() or "21")
+          password = (os.environ.get("FTP_PASSWORD") or "").strip()
+          port_raw = (os.environ.get("FTP_PORT") or "21").strip() or "21"
 
-          for label, value in [("FTP_SERVER", server), ("FTP_USERNAME", user), ("FTP_PASSWORD", password)]:
+          for label, value in [("FTP_SERVER", server_raw), ("FTP_USERNAME", user), ("FTP_PASSWORD", password)]:
               if not value:
                   err(f"{label} secret is empty")
                   sys.exit(1)
 
-          server = server.replace("ftp://", "").replace("ftps://", "").split("/")[0].split(":")[0]
-          notice(f"Connecting to {server}:{port} as {user}")
+          server = server_raw.replace("ftp://", "").replace("ftps://", "").split("/")[0]
+          if ":" in server and server.count(":") == 1:
+              host, maybe_port = server.split(":", 1)
+              if maybe_port.isdigit():
+                  server, port_raw = host, maybe_port
+          try:
+              port = int(port_raw)
+          except ValueError:
+              err(f"FTP_PORT is not a number: {port_raw!r}")
+              sys.exit(1)
 
-          ftp = ftplib.FTP()
-          ftp.connect(server, port, timeout=30)
-          ftp.login(user, password)
-          ftp.set_pasv(True)
-          notice(f"Login OK. pwd={ftp.pwd()}")
+          notice(f"Secret lengths server={len(server_raw)} user={len(user)} password={len(password)} port={port}")
+          notice(f"Resolved host={server!r} port={port}")
+
+          # DNS check
+          try:
+              ips = socket.getaddrinfo(server, port, proto=socket.IPPROTO_TCP)
+              notice(f"DNS OK: {[i[4][0] for i in ips[:3]]}")
+          except Exception as e:
+              err(f"DNS lookup failed for {server!r}: {e}")
+              sys.exit(1)
+
+          def try_login(use_tls: bool):
+              if use_tls:
+                  ftp = ftplib.FTP_TLS()
+              else:
+                  ftp = ftplib.FTP()
+              ftp.connect(server, port, timeout=30)
+              ftp.login(user, password)
+              if use_tls:
+                  try:
+                      ftp.prot_p()
+                  except Exception as e:
+                      notice(f"prot_p skipped: {e}")
+              ftp.set_pasv(True)
+              return ftp
+
+          ftp = None
+          last_error = None
+          for use_tls in (False, True):
+              mode = "FTPS" if use_tls else "FTP"
+              try:
+                  notice(f"Trying {mode} login...")
+                  ftp = try_login(use_tls)
+                  notice(f"{mode} login OK. pwd={ftp.pwd()}")
+                  break
+              except Exception as e:
+                  last_error = e
+                  notice(f"{mode} failed: {type(e).__name__}: {e}")
+
+          if ftp is None:
+              err(f"FTP login failed after FTP/FTPS attempts: {last_error}")
+              sys.exit(1)
 
           try:
               listing = ftp.nlst()
@@ -119,7 +164,7 @@ jobs:
                   uploaded += 1
                   print(f"Uploaded {rel}")
               except Exception as e:
-                  err(f"Failed uploading {rel}: {e}")
+                  err(f"Failed uploading {rel}: {type(e).__name__}: {e}")
                   raise
 
           notice(f"Done. uploaded={uploaded} files to {web_root}")
