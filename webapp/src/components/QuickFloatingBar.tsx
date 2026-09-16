@@ -17,7 +17,7 @@ export const QuickFloatingBar: React.FC<QuickFloatingBarProps> = ({
       {/* 1. Desktop Floating Speed Dial (Right side, PC only) */}
       <aside
         id="desktop-floating-speed-dial"
-        className="hidden xl:flex fixed right-6 bottom-8 z-40 flex-col gap-2.5 select-none"
+        className="hidden lg:flex fixed right-6 bottom-8 z-40 flex-col gap-2.5 select-none"
         aria-label="빠른 바로가기 및 상담"
       >
         {/* 1분 자가진단 플로팅 버튼 */}

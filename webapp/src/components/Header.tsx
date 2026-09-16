@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
               title="대표 전화상담 연결"
             >
               <PhoneCall className="w-3 h-3 text-[#D7AE66]" />
-              <span className="text-xs font-semibold">0503-6982-1000</span>
+              <span className="text-xs font-semibold whitespace-nowrap">0503-6982-1000</span>
             </a>
           </div>
         </div>
@@ -125,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
         className="sticky top-0 z-40 bg-[#151C2C] text-white border-b border-[#222E46] shadow-md transition-all"
         style={{ height: '68px' }}
       >
-        <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto h-full px-3 xl:px-6 flex items-center justify-between gap-2 flex-nowrap">
           {/* Left: 사이트 로고 & 브랜드명 */}
           <div className="flex items-center">
             <button
@@ -140,12 +140,12 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               {/* Brand Name & Tagline */}
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-lg sm:text-xl font-black tracking-tight text-white group-hover:text-[#D7AE66] transition-colors">
+                  <span className="text-base xl:text-xl font-black tracking-tight text-white group-hover:text-[#D7AE66] transition-colors whitespace-nowrap">
                     진주개인파산
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-semibold bg-[#252f44] text-[#D7AE66] px-1.5 py-0.5 rounded border border-[#D7AE66]/30">
+                  <span className="hidden xl:inline-flex text-[10px] sm:text-[11px] font-semibold bg-[#252f44] text-[#D7AE66] px-1.5 py-0.5 rounded border border-[#D7AE66]/30 whitespace-nowrap">
                     진주안심상담
                   </span>
                 </div>
@@ -159,7 +159,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Center: Desktop Navigation Bar */}
           <nav
             id="desktop-navigation"
-            className="hidden lg:flex items-center gap-1 xl:gap-1.5 h-full"
+            className="hidden lg:flex items-center gap-0.5 xl:gap-1.5 h-full flex-nowrap shrink-0"
             aria-label="주요 메뉴"
           >
             {/* 1. 개인회생 (Mega Menu / Dropdown) */}
@@ -171,7 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-menu-rehab"
                 onClick={() => handleNavClick('rehab', 'overview')}
-                className={`px-3.5 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                className={`px-2 xl:px-3.5 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentPage === 'rehab' || activeDropdown === 'rehab'
                     ? 'text-[#D7AE66] bg-[#222E46] font-bold shadow-xs'
                     : 'text-slate-200 hover:text-white hover:bg-[#202B3F]'
@@ -308,7 +308,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-menu-bankruptcy"
                 onClick={() => handleNavClick('bankruptcy', 'overview')}
-                className={`px-3.5 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer ${
+                className={`px-2 xl:px-3.5 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   currentPage === 'bankruptcy' || activeDropdown === 'bankruptcy'
                     ? 'text-[#D7AE66] bg-[#222E46] font-bold shadow-xs'
                     : 'text-slate-200 hover:text-white hover:bg-[#202B3F]'
@@ -440,39 +440,33 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="nav-menu-story"
               onClick={() => handleNavClick('story')}
-              className={`px-3.5 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2 xl:px-3.5 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 currentPage === 'story'
                   ? 'text-[#D7AE66] bg-[#222E46] font-bold shadow-xs'
                   : 'text-slate-200 hover:text-white hover:bg-[#202B3F]'
               }`}
             >
               <span>신용회복 경험담</span>
-              <span className="text-[10px] text-[#D7AE66]/80 font-mono bg-[#202B3F] px-1 py-0.2 rounded border border-[#D7AE66]/20">
-                /story
-              </span>
             </button>
 
             {/* 4. 뉴스/정보 (/news - 그누보드 게시판 2) */}
             <button
               id="nav-menu-news"
               onClick={() => handleNavClick('news')}
-              className={`px-3.5 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2 xl:px-3.5 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 currentPage === 'news'
                   ? 'text-[#D7AE66] bg-[#222E46] font-bold shadow-xs'
                   : 'text-slate-200 hover:text-white hover:bg-[#202B3F]'
               }`}
             >
               <span>뉴스/정보</span>
-              <span className="text-[10px] text-[#D7AE66]/80 font-mono bg-[#202B3F] px-1 py-0.2 rounded border border-[#D7AE66]/20">
-                /news
-              </span>
             </button>
 
             {/* 5. 자가진단 (3초 인지: 내가 대상인지 바로 확인 유도 배지) */}
             <button
               id="nav-menu-diagnosis"
               onClick={() => handleNavClick('diagnosis')}
-              className={`ml-1 px-3.5 py-1.5 text-sm font-bold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer border ${
+              className={`ml-0.5 px-2.5 xl:px-3.5 py-1.5 text-sm font-bold rounded-lg flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all cursor-pointer border ${
                 currentPage === 'diagnosis'
                   ? 'text-[#151C2C] bg-[#D7AE66] border-[#D7AE66] shadow-sm'
                   : 'text-[#D7AE66] bg-[#D7AE66]/10 hover:bg-[#D7AE66]/20 border-[#D7AE66]/40 hover:border-[#D7AE66]'
@@ -488,20 +482,20 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Right: 전화상담 CTA & 상담신청 버튼 (Desktop) */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-2 xl:gap-3 shrink-0">
             {/* 전화상담 CTA */}
             <a
               id="header-cta-phone"
               href="tel:050369821000"
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-left text-slate-200 hover:text-[#D7AE66] hover:bg-[#202B3F] transition-all group"
+              className="flex items-center gap-2 px-2 xl:px-3 py-2 rounded-xl text-left text-slate-200 hover:text-[#D7AE66] hover:bg-[#202B3F] transition-all group whitespace-nowrap"
               title="전화상담 연결"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#202B3F] border border-slate-700 flex items-center justify-center text-[#D7AE66] group-hover:border-[#D7AE66]/60 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-[#202B3F] border border-slate-700 flex items-center justify-center text-[#D7AE66] group-hover:border-[#D7AE66]/60 transition-colors shrink-0">
                 <PhoneCall className="w-4 h-4" />
               </div>
-              <div className="leading-tight">
-                <div className="text-[10px] text-slate-400 font-medium">야간·주말 상담가능</div>
-                <div className="text-sm font-bold text-white group-hover:text-[#D7AE66] tracking-tight">
+              <div className="leading-tight whitespace-nowrap">
+                <div className="text-[10px] text-slate-400 font-medium whitespace-nowrap">야간·주말 상담가능</div>
+                <div className="text-sm font-bold text-white group-hover:text-[#D7AE66] tracking-tight whitespace-nowrap">
                   0503-6982-1000
                 </div>
               </div>
@@ -511,7 +505,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="btn-header-counsel-apply"
               onClick={() => handleNavClick('consultation')}
-              className="px-4 xl:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D7AE66] to-[#C59C53] hover:from-[#e4c281] hover:to-[#D7AE66] active:scale-[0.98] text-[#151C2C] font-extrabold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              className="px-3 xl:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#D7AE66] to-[#C59C53] hover:from-[#e4c281] hover:to-[#D7AE66] active:scale-[0.98] text-[#151C2C] font-extrabold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
             >
               <Lock className="w-4 h-4" />
               <span>상담신청</span>
