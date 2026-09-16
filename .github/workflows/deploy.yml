@@ -11,14 +11,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ftp-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy via SCP
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        working-directory: webapp
+        run: npm install
+
+      - name: Build production site
+        working-directory: webapp
+        run: npm run build
+
+      - name: Deploy dist via SCP
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -31,7 +44,6 @@ jobs:
           SERVER="$(echo "$FTP_SERVER" | sed -E 's#^(s?ftp|ftps)://##; s#/.*##; s#:.*##')"
           USER="$FTP_USERNAME"
           export SSHPASS="$FTP_PASSWORD"
-
           SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no"
 
           echo "::notice::SSH connect ${USER}@${SERVER}:22"
@@ -43,22 +55,9 @@ jobs:
           else
             REMOTE="."
           fi
-          echo "::notice::Upload target: ${REMOTE}/"
+          echo "::notice::Upload target: ${REMOTE}/ (visiontrack-spa-v1)"
 
-          # Stage clean upload tree
-          rm -rf /tmp/deploy-upload
-          mkdir -p /tmp/deploy-upload
-          rsync -a \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude '.gitignore' \
-            --exclude 'README.md' \
-            --exclude '.DS_Store' \
-            ./ /tmp/deploy-upload/
-
-          # Upload contents into remote www (or home)
-          sshpass -e scp $SSH_OPTS -P 22 -r /tmp/deploy-upload/. "${USER}@${SERVER}:${REMOTE}/"
-
+          sshpass -e scp $SSH_OPTS -P 22 -r ./webapp/dist/. "${USER}@${SERVER}:${REMOTE}/"
           echo "::notice::Remote listing after upload"
           sshpass -e ssh $SSH_OPTS -p 22 "${USER}@${SERVER}" "ls -la ${REMOTE} | head -40"
-          echo "::notice::SCP deploy finished"
+          echo "::notice::SCP SPA deploy finished"

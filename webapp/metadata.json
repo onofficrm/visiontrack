@@ -1,0 +1,8 @@
+{
+  "name": "진주개인파산",
+  "description": "진주개인파산 전문 1:1 비공개 안심 법률상담 및 1분 자가진단",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
