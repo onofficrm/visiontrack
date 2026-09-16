@@ -18,147 +18,79 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy via Python FTP
+      - name: Deploy via SFTP
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PORT: ${{ secrets.FTP_PORT }}
         run: |
-          python3 <<'PY'
-          import ftplib, os, sys, socket
-          from pathlib import Path
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y sshpass rsync
 
-          def err(msg: str) -> None:
-              print(f"::error::{msg}")
-              print(msg, file=sys.stderr)
+          python3 <<'PY'
+          import os, shlex, subprocess, sys
 
           def notice(msg: str) -> None:
               print(f"::notice::{msg}")
               print(msg)
 
-          server_raw = (os.environ.get("FTP_SERVER") or "").strip()
+          def err(msg: str) -> None:
+              print(f"::error::{msg}")
+              print(msg, file=sys.stderr)
+
+          server = (os.environ.get("FTP_SERVER") or "").strip()
           user = (os.environ.get("FTP_USERNAME") or "").strip()
           password = (os.environ.get("FTP_PASSWORD") or "").strip()
-          port_raw = (os.environ.get("FTP_PORT") or "21").strip() or "21"
-
-          for label, value in [("FTP_SERVER", server_raw), ("FTP_USERNAME", user), ("FTP_PASSWORD", password)]:
+          for label, value in [("FTP_SERVER", server), ("FTP_USERNAME", user), ("FTP_PASSWORD", password)]:
               if not value:
                   err(f"{label} secret is empty")
                   sys.exit(1)
 
-          server = server_raw.replace("ftp://", "").replace("ftps://", "").split("/")[0]
-          if ":" in server and server.count(":") == 1:
-              host, maybe_port = server.split(":", 1)
-              if maybe_port.isdigit():
-                  server, port_raw = host, maybe_port
-          port = int(port_raw)
-
-          notice(f"Secret lengths server={len(server_raw)} user={len(user)} password={len(password)} port={port}")
-          ips = socket.getaddrinfo(server, port, proto=socket.IPPROTO_TCP)
-          notice(f"DNS OK: {[i[4][0] for i in ips[:3]]}")
-
-          ftp = ftplib.FTP()
-          ftp.connect(server, port, timeout=30)
-          ftp.login(user, password)
-          ftp.set_pasv(True)
-          notice("FTP login OK (credentials accepted)")
-
-          # Broken home dir (/www missing) is common on this host.
-          # Try known web roots without relying on PWD first.
-          candidates = [
-              "/",
-              "/public_html",
-              "/www",
-              "/home/" + user,
-              "/home/" + user + "/www",
-              "/home/" + user + "/public_html",
-              "public_html",
-              "www",
-              ".",
+          server = server.replace("ftp://", "").replace("sftp://", "").replace("ftps://", "").split("/")[0].split(":")[0]
+          os.environ["SSHPASS"] = password
+          ssh_base = [
+              "sshpass", "-e", "ssh",
+              "-o", "StrictHostKeyChecking=no",
+              "-o", "UserKnownHostsFile=/dev/null",
+              "-o", "PreferredAuthentications=password",
+              "-o", "PubkeyAuthentication=no",
+              "-p", "22",
+              f"{user}@{server}",
           ]
-          landed = None
-          for candidate in candidates:
-              try:
-                  ftp.cwd(candidate)
-                  landed = candidate
-                  notice(f"cwd OK: {candidate}")
-                  break
-              except Exception as e:
-                  notice(f"cwd failed {candidate}: {e}")
 
-          if landed is None:
+          notice(f"SFTP/SSH connect {user}@{server}:22")
+          probe = subprocess.run(
+              ssh_base + ["pwd; ls -la; if [ -d www ]; then echo HAS_WWW=1; else echo HAS_WWW=0; fi"],
+              capture_output=True, text=True
+          )
+          print(probe.stdout)
+          print(probe.stderr)
+          if probe.returncode != 0:
               err(
-                  "FTP login worked but no usable directory. "
-                  "Hosting FTP home is likely set to /www which does not exist. "
-                  "In the hosting panel, set the FTP account home to an existing web root "
-                  "(public_html or www), then re-run."
+                  "SSH/SFTP login failed. In Cafe24 click FTP/SSH 접속설정 > 설정하기 "
+                  "and allow overseas IPs, then confirm the password matches GitHub FTP_PASSWORD."
               )
-              sys.exit(1)
+              sys.exit(probe.returncode)
 
-          try:
-              web_root = ftp.pwd()
-          except Exception as e:
-              web_root = landed
-              notice(f"pwd still failing ({e}); using landed path {landed}")
-          notice(f"Uploading into: {web_root}")
+          remote = "www/" if "HAS_WWW=1" in (probe.stdout or "") else "./"
+          notice(f"Upload target: {remote}")
 
-          try:
-              listing = ftp.nlst()
-              notice(f"Listing: {listing}")
-          except Exception as e:
-              notice(f"nlst failed: {e}")
-
-          def chdir_web() -> None:
-              ftp.cwd(web_root if web_root.startswith("/") else landed)
-
-          def ensure_dir(remote_dir: str) -> None:
-              parts = [p for p in remote_dir.replace("\\", "/").split("/") if p and p != "."]
-              chdir_web()
-              for part in parts:
-                  try:
-                      ftp.cwd(part)
-                  except ftplib.error_perm:
-                      try:
-                          ftp.mkd(part)
-                          notice(f"Created dir {part}")
-                      except ftplib.error_perm as e:
-                          err(f"mkd failed for '{part}': {e}")
-                          raise
-                      ftp.cwd(part)
-
-          skip_tops = {".git", ".github"}
-          skip_files = {".gitignore", "README.md"}
-          root = Path(".").resolve()
-          uploaded = 0
-
-          for path in sorted(root.rglob("*")):
-              if not path.is_file():
-                  continue
-              rel = path.relative_to(root).as_posix()
-              parts = Path(rel).parts
-              if parts and parts[0] in skip_tops:
-                  continue
-              if path.name in skip_files:
-                  continue
-
-              parent = str(Path(rel).parent).replace("\\", "/")
-              try:
-                  if parent in ("", "."):
-                      chdir_web()
-                  else:
-                      ensure_dir(parent)
-                  with path.open("rb") as fh:
-                      ftp.storbinary(f"STOR {path.name}", fh)
-                  uploaded += 1
-                  print(f"Uploaded {rel}")
-              except Exception as e:
-                  err(f"Failed uploading {rel}: {type(e).__name__}: {e}")
-                  raise
-
-          notice(f"Done. uploaded={uploaded} files")
-          try:
-              ftp.quit()
-          except Exception:
-              ftp.close()
+          rsync = [
+              "sshpass", "-e", "rsync", "-avz", "--delete",
+              "--exclude", ".git",
+              "--exclude", ".github",
+              "--exclude", ".gitignore",
+              "--exclude", "README.md",
+              "-e", "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -p 22",
+              "./",
+              f"{user}@{server}:{remote}",
+          ]
+          result = subprocess.run(rsync, capture_output=True, text=True)
+          print(result.stdout)
+          print(result.stderr)
+          if result.returncode != 0:
+              err(f"rsync failed: {result.stderr.strip() or result.stdout.strip()}")
+              sys.exit(result.returncode)
+          notice("SFTP deploy finished")
           PY
