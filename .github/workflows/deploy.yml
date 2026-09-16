@@ -18,34 +18,113 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
-          protocol: ftp
-          local-dir: ./
-          server-dir: /public_html/
-          state-name: visiontrack-deploy-v3
-          log-level: standard
-          exclude: |
-            .git
-            .git/**
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/.DS_Store
-            **/.vscode/**
-            **/._*
-            README.md
-            _backup_transfer_*/
-            **/_backup_transfer_*/
-            data/**
-            cache/**
-            session/**
-            tmp/**
-            *.log
-            .env
-            .env.*
+      - name: Deploy via Python FTP
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_PORT: ${{ secrets.FTP_PORT }}
+        run: |
+          python3 <<'PY'
+          import ftplib, os, sys
+          from pathlib import Path
+
+          def err(msg: str) -> None:
+              print(f"::error::{msg}")
+              print(msg, file=sys.stderr)
+
+          def notice(msg: str) -> None:
+              print(f"::notice::{msg}")
+              print(msg)
+
+          server = (os.environ.get("FTP_SERVER") or "").strip()
+          user = (os.environ.get("FTP_USERNAME") or "").strip()
+          password = os.environ.get("FTP_PASSWORD") or ""
+          port = int((os.environ.get("FTP_PORT") or "21").strip() or "21")
+
+          for label, value in [("FTP_SERVER", server), ("FTP_USERNAME", user), ("FTP_PASSWORD", password)]:
+              if not value:
+                  err(f"{label} secret is empty")
+                  sys.exit(1)
+
+          server = server.replace("ftp://", "").replace("ftps://", "").split("/")[0].split(":")[0]
+          notice(f"Connecting to {server}:{port} as {user}")
+
+          ftp = ftplib.FTP()
+          ftp.connect(server, port, timeout=30)
+          ftp.login(user, password)
+          ftp.set_pasv(True)
+          notice(f"Login OK. pwd={ftp.pwd()}")
+
+          try:
+              listing = ftp.nlst()
+          except Exception as e:
+              listing = []
+              notice(f"nlst failed: {e}")
+          notice(f"Root listing: {listing}")
+
+          for candidate in ("public_html", "www", "wwwroot", "htdocs"):
+              if candidate in listing:
+                  try:
+                      ftp.cwd(candidate)
+                      notice(f"Changed into {candidate}, pwd={ftp.pwd()}")
+                      break
+                  except ftplib.error_perm as e:
+                      notice(f"Could not cwd {candidate}: {e}")
+
+          web_root = ftp.pwd()
+          notice(f"Uploading into web root: {web_root}")
+
+          def chdir_web() -> None:
+              ftp.cwd(web_root)
+
+          def ensure_dir(remote_dir: str) -> None:
+              parts = [p for p in remote_dir.replace("\\", "/").split("/") if p and p != "."]
+              chdir_web()
+              for part in parts:
+                  try:
+                      ftp.cwd(part)
+                  except ftplib.error_perm:
+                      try:
+                          ftp.mkd(part)
+                          notice(f"Created dir {part} under {ftp.pwd()}")
+                      except ftplib.error_perm as e:
+                          err(f"mkd failed for '{part}' in '{ftp.pwd()}': {e}")
+                          raise
+                      ftp.cwd(part)
+
+          skip_tops = {".git", ".github"}
+          skip_files = {".gitignore", "README.md"}
+          root = Path(".").resolve()
+          uploaded = 0
+
+          for path in sorted(root.rglob("*")):
+              if not path.is_file():
+                  continue
+              rel = path.relative_to(root).as_posix()
+              parts = Path(rel).parts
+              if parts and parts[0] in skip_tops:
+                  continue
+              if path.name in skip_files:
+                  continue
+
+              parent = str(Path(rel).parent).replace("\\", "/")
+              try:
+                  if parent in ("", "."):
+                      chdir_web()
+                  else:
+                      ensure_dir(parent)
+                  with path.open("rb") as fh:
+                      ftp.storbinary(f"STOR {path.name}", fh)
+                  uploaded += 1
+                  print(f"Uploaded {rel}")
+              except Exception as e:
+                  err(f"Failed uploading {rel}: {e}")
+                  raise
+
+          notice(f"Done. uploaded={uploaded} files to {web_root}")
+          try:
+              ftp.quit()
+          except Exception:
+              ftp.close()
+          PY
