@@ -18,98 +18,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
-
-      - name: Deploy via lftp
-        env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_PORT: ${{ secrets.FTP_PORT }}
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import os, shlex, subprocess, tempfile, textwrap
-          server = os.environ["FTP_SERVER"].replace("ftp://", "").replace("ftps://", "").split("/")[0]
-          user = os.environ["FTP_USERNAME"]
-          password = os.environ["FTP_PASSWORD"]
-          port = os.environ.get("FTP_PORT") or "21"
-          script = textwrap.dedent(f"""
-          set ftp:ssl-allow no
-          set net:max-retries 3
-          set net:timeout 20
-          set cmd:fail-exit yes
-          open -p {port} {server}
-          user {user} {password}
-          pwd
-          ls
-          mkdir -f www
-          mkdir -f public_html
-          # Prefer existing web roots; fall back to login home
-          glob -a echo *
-          """)
-          # Try deploy targets in order
-          for target in ["www", "public_html", "."]:
-              script += textwrap.dedent(f"""
-              cd
-              cd {target}
-              pwd
-              mirror -R --verbose --parallel=1 \\
-                --exclude-glob .git \\
-                --exclude-glob .git/** \\
-                --exclude-glob .github \\
-                --exclude-glob .github/** \\
-                --exclude-glob README.md \\
-                --exclude-glob .gitignore \\
-                ./ ./
-              bye
-              """)
-              break  # only first successful path — handled below
-
-          # Better: probe then mirror once
-          probe = textwrap.dedent(f"""
-          set ftp:ssl-allow no
-          set net:max-retries 2
-          set net:timeout 20
-          open -p {port} {server}
-          user {user} {password}
-          cls -1
-          bye
-          """)
-          print("Probing FTP roots...")
-          probe_out = subprocess.run(["lftp", "-c", probe], capture_output=True, text=True)
-          print(probe_out.stdout)
-          print(probe_out.stderr)
-          listing = (probe_out.stdout or "") + "\n" + (probe_out.stderr or "")
-          if "www" in listing.split():
-              remote = "www"
-          elif "public_html" in listing.split():
-              remote = "public_html"
-          else:
-              remote = "."
-          print(f"Using remote dir: {remote}")
-          deploy = textwrap.dedent(f"""
-          set ftp:ssl-allow no
-          set net:max-retries 3
-          set net:timeout 30
-          set cmd:fail-exit yes
-          open -p {port} {server}
-          user {user} {password}
-          cd {remote}
-          lcd .
-          mirror -R --verbose --parallel=1 \\
-            --exclude-glob .git \\
-            --exclude-glob .git/** \\
-            --exclude-glob .github \\
-            --exclude-glob .github/** \\
-            --exclude-glob README.md \\
-            --exclude-glob .gitignore \\
-            ./ ./
-          bye
-          """)
-          result = subprocess.run(["lftp", "-c", deploy], capture_output=True, text=True)
-          print(result.stdout)
-          print(result.stderr)
-          raise SystemExit(result.returncode)
-          PY
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: ftp
+          local-dir: ./
+          server-dir: /public_html/
+          state-name: visiontrack-deploy-v3
+          log-level: standard
+          exclude: |
+            .git
+            .git/**
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/.DS_Store
+            **/.vscode/**
+            **/._*
+            README.md
+            _backup_transfer_*/
+            **/_backup_transfer_*/
+            data/**
+            cache/**
+            session/**
+            tmp/**
+            *.log
+            .env
+            .env.*
