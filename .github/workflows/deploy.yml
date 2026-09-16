@@ -52,76 +52,65 @@ jobs:
               host, maybe_port = server.split(":", 1)
               if maybe_port.isdigit():
                   server, port_raw = host, maybe_port
-          try:
-              port = int(port_raw)
-          except ValueError:
-              err(f"FTP_PORT is not a number: {port_raw!r}")
-              sys.exit(1)
+          port = int(port_raw)
 
           notice(f"Secret lengths server={len(server_raw)} user={len(user)} password={len(password)} port={port}")
-          notice(f"Resolved host={server!r} port={port}")
+          ips = socket.getaddrinfo(server, port, proto=socket.IPPROTO_TCP)
+          notice(f"DNS OK: {[i[4][0] for i in ips[:3]]}")
 
-          # DNS check
-          try:
-              ips = socket.getaddrinfo(server, port, proto=socket.IPPROTO_TCP)
-              notice(f"DNS OK: {[i[4][0] for i in ips[:3]]}")
-          except Exception as e:
-              err(f"DNS lookup failed for {server!r}: {e}")
-              sys.exit(1)
+          ftp = ftplib.FTP()
+          ftp.connect(server, port, timeout=30)
+          ftp.login(user, password)
+          ftp.set_pasv(True)
+          notice("FTP login OK (credentials accepted)")
 
-          def try_login(use_tls: bool):
-              if use_tls:
-                  ftp = ftplib.FTP_TLS()
-              else:
-                  ftp = ftplib.FTP()
-              ftp.connect(server, port, timeout=30)
-              ftp.login(user, password)
-              if use_tls:
-                  try:
-                      ftp.prot_p()
-                  except Exception as e:
-                      notice(f"prot_p skipped: {e}")
-              ftp.set_pasv(True)
-              return ftp
-
-          ftp = None
-          last_error = None
-          for use_tls in (False, True):
-              mode = "FTPS" if use_tls else "FTP"
+          # Broken home dir (/www missing) is common on this host.
+          # Try known web roots without relying on PWD first.
+          candidates = [
+              "/",
+              "/public_html",
+              "/www",
+              "/home/" + user,
+              "/home/" + user + "/www",
+              "/home/" + user + "/public_html",
+              "public_html",
+              "www",
+              ".",
+          ]
+          landed = None
+          for candidate in candidates:
               try:
-                  notice(f"Trying {mode} login...")
-                  ftp = try_login(use_tls)
-                  notice(f"{mode} login OK. pwd={ftp.pwd()}")
+                  ftp.cwd(candidate)
+                  landed = candidate
+                  notice(f"cwd OK: {candidate}")
                   break
               except Exception as e:
-                  last_error = e
-                  notice(f"{mode} failed: {type(e).__name__}: {e}")
+                  notice(f"cwd failed {candidate}: {e}")
 
-          if ftp is None:
-              err(f"FTP login failed after FTP/FTPS attempts: {last_error}")
+          if landed is None:
+              err(
+                  "FTP login worked but no usable directory. "
+                  "Hosting FTP home is likely set to /www which does not exist. "
+                  "In the hosting panel, set the FTP account home to an existing web root "
+                  "(public_html or www), then re-run."
+              )
               sys.exit(1)
+
+          try:
+              web_root = ftp.pwd()
+          except Exception as e:
+              web_root = landed
+              notice(f"pwd still failing ({e}); using landed path {landed}")
+          notice(f"Uploading into: {web_root}")
 
           try:
               listing = ftp.nlst()
+              notice(f"Listing: {listing}")
           except Exception as e:
-              listing = []
               notice(f"nlst failed: {e}")
-          notice(f"Root listing: {listing}")
-
-          for candidate in ("public_html", "www", "wwwroot", "htdocs"):
-              if candidate in listing:
-                  try:
-                      ftp.cwd(candidate)
-                      notice(f"Changed into {candidate}, pwd={ftp.pwd()}")
-                      break
-                  except ftplib.error_perm as e:
-                      notice(f"Could not cwd {candidate}: {e}")
-
-          web_root = ftp.pwd()
-          notice(f"Uploading into web root: {web_root}")
 
           def chdir_web() -> None:
-              ftp.cwd(web_root)
+              ftp.cwd(web_root if web_root.startswith("/") else landed)
 
           def ensure_dir(remote_dir: str) -> None:
               parts = [p for p in remote_dir.replace("\\", "/").split("/") if p and p != "."]
@@ -132,9 +121,9 @@ jobs:
                   except ftplib.error_perm:
                       try:
                           ftp.mkd(part)
-                          notice(f"Created dir {part} under {ftp.pwd()}")
+                          notice(f"Created dir {part}")
                       except ftplib.error_perm as e:
-                          err(f"mkd failed for '{part}' in '{ftp.pwd()}': {e}")
+                          err(f"mkd failed for '{part}': {e}")
                           raise
                       ftp.cwd(part)
 
@@ -167,7 +156,7 @@ jobs:
                   err(f"Failed uploading {rel}: {type(e).__name__}: {e}")
                   raise
 
-          notice(f"Done. uploaded={uploaded} files to {web_root}")
+          notice(f"Done. uploaded={uploaded} files")
           try:
               ftp.quit()
           except Exception:
